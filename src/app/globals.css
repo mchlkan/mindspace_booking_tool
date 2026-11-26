@@ -30,6 +30,9 @@
   --color-ink-700: #393939;
   --color-ink-500: #5f5f5f;
 
+  /* Not in the brand book: needed for readable form errors (AA on white). */
+  --color-error: #a63d35;
+
   /* Typography */
   --font-sans: var(--font-league-spartan), ui-sans-serif, system-ui, sans-serif;
   --font-brand: var(--font-open-sauce), var(--font-league-spartan), ui-sans-serif, sans-serif;

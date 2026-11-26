@@ -16,6 +16,8 @@ npm run dev        # http://localhost:3000
 
 PGlite allows one process at a time, so stop `npm run dev` before running `db:*` scripts.
 
+Run the tests (booking rules, against a throwaway in-memory database) with `npm test`.
+
 ## Database
 
 | Command | What it does |

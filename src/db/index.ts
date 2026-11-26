@@ -22,7 +22,9 @@ function createDb(): Db {
     throw new Error("DATABASE_URL is not set. Add Neon to the Vercel project.");
   }
   // The query-builder API is identical; the cast only unifies the driver types.
-  return drizzlePglite({ client: new PGlite(".pglite"), schema, casing: "snake_case" }) as unknown as Db;
+  // PGLITE_DIR lets tests use a throwaway in-memory database ("memory://").
+  const dir = process.env.PGLITE_DIR ?? ".pglite";
+  return drizzlePglite({ client: new PGlite(dir), schema, casing: "snake_case" }) as unknown as Db;
 }
 
 // Connect lazily on first use (so builds never need a database), and reuse
