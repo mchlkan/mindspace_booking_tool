@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, gt, sql } from "drizzle-orm";
+import { and, asc, eq, gt, sql, type SQL } from "drizzle-orm";
 import { connection } from "next/server";
 import { z } from "zod";
 import { db, schema } from "@/db";
@@ -47,12 +47,22 @@ export type SessionSummary = Awaited<ReturnType<typeof listUpcomingPublicSession
 /**
  * One public session with everything the detail page and booking form need.
  * Returns null for unknown ids, private sessions and malformed ids.
- * (Private sessions are reached through /s/[slug], added in Phase 5.)
+ * Private sessions are only reachable through their link (getSessionBySlug).
  */
 export async function getPublicSession(id: string) {
   await connection();
   if (!z.uuid().safeParse(id).success) return null;
+  return getBookableSession(and(eq(sessions.id, id), eq(sessions.visibility, "public"))!);
+}
 
+/** A private session by its unguessable link slug. */
+export async function getSessionBySlug(slug: string) {
+  await connection();
+  if (!/^[\w-]{21}$/.test(slug)) return null;
+  return getBookableSession(and(eq(sessions.privateSlug, slug), eq(sessions.visibility, "private"))!);
+}
+
+async function getBookableSession(where: SQL) {
   const [row] = await db
     .select({
       id: sessions.id,
@@ -69,6 +79,8 @@ export async function getPublicSession(id: string) {
       matLimit: sessions.matLimit,
       status: sessions.status,
       bannerUrl: sessions.bannerUrl,
+      visibility: sessions.visibility,
+      privateSlug: sessions.privateSlug,
       organiserName: organisers.name,
       organiserHasPaymentLink: sql<boolean>`${organisers.paymentLink} is not null`,
       spotsTaken: spotsTakenSql,
@@ -77,7 +89,7 @@ export async function getPublicSession(id: string) {
     .from(sessions)
     .innerJoin(organisers, eq(organisers.id, sessions.organiserId))
     .leftJoin(bookings, eq(bookings.sessionId, sessions.id))
-    .where(and(eq(sessions.id, id), eq(sessions.visibility, "public")))
+    .where(where)
     .groupBy(sessions.id, organisers.id);
 
   if (!row) return null;

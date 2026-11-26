@@ -227,3 +227,39 @@ export const emailLog = pgTable(
       .where(sql`${t.type} = 'session_reminder' and ${t.cancelledAt} is null`),
   ],
 );
+
+// ---------------------------------------------------------------------------
+// Organiser sign-in (email links) and login sessions
+// Only SHA-256 hashes of tokens are stored, never the tokens themselves.
+// ---------------------------------------------------------------------------
+
+/** One-time sign-in links emailed to organisers. */
+export const loginTokens = pgTable(
+  "login_tokens",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    organiserId: uuid()
+      .notNull()
+      .references(() => organisers.id, { onDelete: "cascade" }),
+    tokenHash: text().notNull().unique(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    usedAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("login_tokens_organiser_idx").on(t.organiserId, t.createdAt)],
+);
+
+/** Signed-in browser sessions (the cookie holds the token, the DB its hash). */
+export const authSessions = pgTable(
+  "auth_sessions",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    organiserId: uuid()
+      .notNull()
+      .references(() => organisers.id, { onDelete: "cascade" }),
+    tokenHash: text().notNull().unique(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("auth_sessions_organiser_idx").on(t.organiserId)],
+);

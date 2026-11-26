@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { Logo } from "@/components/logo";
 import { SessionCard } from "@/components/session-card";
@@ -28,7 +29,14 @@ export default function Home() {
         </Suspense>
       </main>
 
-      <footer className="px-4 py-8 text-center text-sm text-stone-500">@nova_mindspace</footer>
+      <footer className="space-y-1 px-4 py-8 text-center text-sm text-stone-500">
+        <p>@nova_mindspace</p>
+        <p>
+          <Link href="/login" className="underline underline-offset-4 hover:text-navy-500">
+            Organiser sign in
+          </Link>
+        </p>
+      </footer>
     </>
   );
 }

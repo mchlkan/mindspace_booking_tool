@@ -2,10 +2,13 @@
 
 import { useActionState, useId, useState } from "react";
 import { bookSessionAction, type BookingFormState } from "@/app/actions";
+import { ErrorText, Field, inputClass } from "@/components/ui";
 import { formatPrice } from "@/lib/format";
 
 type Props = {
   sessionId: string;
+  /** Booking through a private link. */
+  privateSlug?: string;
   kind: "training" | "event";
   priceCents: number;
   acceptsCash: boolean;
@@ -14,11 +17,6 @@ type Props = {
   matsLeft: number;
   organiserName: string;
 };
-
-const inputClass =
-  "mt-1.5 block w-full rounded-xl border-0 bg-white px-4 py-3 text-base text-ink-900 ring-1 ring-sand-400 " +
-  "placeholder:text-stone-500 focus:ring-2 focus:ring-navy-500 focus:outline-none " +
-  "aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-error";
 
 export function BookingForm(props: Props) {
   const [state, action, pending] = useActionState<BookingFormState, FormData>(bookSessionAction, {});
@@ -60,6 +58,7 @@ export function BookingForm(props: Props) {
   return (
     <form action={action} onChange={markEdited} className="space-y-5" noValidate>
       <input type="hidden" name="sessionId" value={props.sessionId} />
+      {props.privateSlug && <input type="hidden" name="privateSlug" value={props.privateSlug} />}
 
       {state.error && (
         <p role="alert" className="rounded-xl bg-sun-300 px-4 py-3 text-[15px] font-medium text-navy-700">
@@ -176,42 +175,3 @@ export function BookingForm(props: Props) {
   );
 }
 
-function Field({
-  id,
-  label,
-  hint,
-  error,
-  children,
-}: {
-  id: string;
-  label: string;
-  hint?: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label htmlFor={id} className="font-semibold text-navy-700">
-        {label}
-      </label>
-      {children}
-      {error ? (
-        <ErrorText id={`${id}-err`}>{error}</ErrorText>
-      ) : (
-        hint && (
-          <p id={`${id}-hint`} className="mt-1 text-sm text-ink-500">
-            {hint}
-          </p>
-        )
-      )}
-    </div>
-  );
-}
-
-function ErrorText({ id, children }: { id: string; children: React.ReactNode }) {
-  return (
-    <p id={id} className="mt-1 text-sm font-medium text-error">
-      {children}
-    </p>
-  );
-}

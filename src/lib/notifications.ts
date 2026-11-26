@@ -6,7 +6,10 @@ import { cancelDeadline } from "@/lib/booking";
 import { bookingIcs } from "@/lib/calendar";
 import { cancelScheduledEmail, sendEmail } from "@/lib/email/transport";
 import { BookingConfirmedEmail } from "@/lib/email/templates/booking-confirmed";
+import { SessionCancelledEmail } from "@/lib/email/templates/session-cancelled";
+import { SessionChangedEmail } from "@/lib/email/templates/session-changed";
 import { SessionReminderEmail } from "@/lib/email/templates/session-reminder";
+import { holdsSpot } from "@/lib/spots";
 import { formatDay, formatPrice, formatTime } from "@/lib/format";
 
 const { bookings, sessions, organisers, emailLog } = schema;
@@ -250,4 +253,139 @@ export async function cancelReminders(bookingIds: string[], now = new Date()) {
     if (row.resendId) await cancelScheduledEmail(row.resendId);
     await db.update(emailLog).set({ cancelledAt: now }).where(eq(emailLog.id, row.id));
   }
+}
+
+// ---------------------------------------------------------------------------
+// Session changed / cancelled by the organiser → tell everyone booked
+// ---------------------------------------------------------------------------
+
+/** Calendar SEQUENCE: grows every second, so each update supersedes the last. */
+const calendarSequence = (now: Date) => Math.floor((now.getTime() - Date.UTC(2026, 0, 1)) / 1000);
+
+async function activeBookingIds(sessionIds: string[]) {
+  if (sessionIds.length === 0) return [];
+  const rows = await db
+    .select({ id: bookings.id })
+    .from(bookings)
+    .where(and(inArray(bookings.sessionId, sessionIds), sql`${holdsSpot}`));
+  return rows.map((r) => r.id);
+}
+
+/**
+ * Time or place changed: email everyone booked with the new details and an
+ * updated calendar event, and move their reminders to the new time.
+ */
+export async function notifySessionChanged(
+  sessionId: string,
+  previous: { startsAt: Date; endsAt: Date; location: string },
+  now = new Date(),
+) {
+  const ids = await activeBookingIds([sessionId]);
+  if (ids.length === 0) return { notified: 0 };
+  await cancelReminders(ids, now);
+
+  const sequence = calendarSequence(now);
+  let notified = 0;
+  for (const id of ids) {
+    const b = await loadBooking(id);
+    if (!b) continue;
+    const changes: { label: string; before: string; after: string }[] = [];
+    const before = `${formatDay(previous.startsAt)}, ${formatTime(previous.startsAt)}–${formatTime(previous.endsAt)}`;
+    if (before !== when(b)) changes.push({ label: "Time", before, after: when(b) });
+    if (previous.location !== b.location) changes.push({ label: "Place", before: previous.location, after: b.location });
+    if (changes.length === 0) continue;
+
+    const bookingUrl = appUrl(`/b/${b.token}`);
+    const { id: emailId } = await sendEmail({
+      to: b.email,
+      subject: `Changed: ${b.title} is now ${at(b.startsAt)}`,
+      react: SessionChangedEmail({
+        firstName: firstName(b.fullName),
+        title: b.title,
+        host: b.host,
+        changes,
+        when: when(b),
+        location: b.location,
+        bookingUrl,
+        canCancel: now < cancelDeadline(b.startsAt, b.cancelCutoffHours),
+      }),
+      attachments: [
+        {
+          filename: "mindspace-session.ics",
+          content: bookingIcs({
+            bookingId: b.id,
+            title: `${b.title} · Mindspace`,
+            description: `${b.description}\n\nYour booking: ${bookingUrl}`.trim(),
+            location: b.location,
+            startsAt: b.startsAt,
+            endsAt: b.endsAt,
+            url: bookingUrl,
+            sequence,
+          }),
+          contentType: "text/calendar; charset=utf-8",
+        },
+      ],
+    });
+    await db.insert(emailLog).values({
+      type: "session_changed",
+      toEmail: b.email,
+      bookingId: b.id,
+      sessionId: b.sessionId,
+      resendId: emailId,
+    });
+    notified++;
+    await scheduleReminderIfDue(b.id, now);
+  }
+  return { notified };
+}
+
+/** Sessions cancelled: email everyone booked and cancel their reminders. */
+export async function notifySessionsCancelled(sessionIds: string[], now = new Date()) {
+  const ids = await activeBookingIds(sessionIds);
+  await cancelReminders(ids, now);
+
+  const sequence = calendarSequence(now);
+  for (const id of ids) {
+    const b = await loadBooking(id);
+    if (!b) continue;
+    const bookingUrl = appUrl(`/b/${b.token}`);
+    const { id: emailId } = await sendEmail({
+      to: b.email,
+      subject: `Cancelled: ${b.title}, ${at(b.startsAt)}`,
+      react: SessionCancelledEmail({
+        firstName: firstName(b.fullName),
+        title: b.title,
+        host: b.host,
+        when: when(b),
+        location: b.location,
+        paid: b.paymentStatus !== "unpaid",
+        browseUrl: appUrl("/"),
+      }),
+      attachments: [
+        {
+          filename: "mindspace-session.ics",
+          content: bookingIcs({
+            bookingId: b.id,
+            title: `${b.title} · Mindspace`,
+            description: "This session was cancelled.",
+            location: b.location,
+            startsAt: b.startsAt,
+            endsAt: b.endsAt,
+            url: bookingUrl,
+            cancelled: true,
+            sequence,
+          }),
+          contentType: "text/calendar; charset=utf-8",
+        },
+      ],
+    });
+    await db.insert(emailLog).values({
+      type: "session_cancelled",
+      toEmail: b.email,
+      bookingId: b.id,
+      sessionId: b.sessionId,
+      resendId: emailId,
+    });
+  }
+  return { notified: ids.length };
 }

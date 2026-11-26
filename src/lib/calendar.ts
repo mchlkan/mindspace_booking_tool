@@ -9,6 +9,8 @@ type CalendarInput = {
   endsAt: Date;
   url: string;
   cancelled?: boolean;
+  /** Must increase each time the event changes, so calendars apply the update. */
+  sequence?: number;
 };
 
 /**
@@ -33,6 +35,7 @@ export function bookingIcs(input: CalendarInput): string {
     endOutputType: "utc",
     status: input.cancelled ? "CANCELLED" : "CONFIRMED",
     busyStatus: "BUSY",
+    sequence: input.sequence ?? 0,
   });
   if (error || !value) throw error ?? new Error("Could not create calendar event");
   return value;

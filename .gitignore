@@ -48,3 +48,6 @@ node_modules
 
 # local email outbox (dev preview when Resend is not configured)
 /.outbox/
+
+# locally uploaded images (production uses Vercel Blob)
+/.uploads/

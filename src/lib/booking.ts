@@ -9,6 +9,8 @@ const { sessions, bookings, organisers } = schema;
 
 export const bookingInput = z.object({
   sessionId: z.uuid(),
+  /** Set when booking through a private link (/s/[slug]). */
+  privateSlug: z.string().regex(/^[\w-]{21}$/).optional(),
   fullName: z
     .string()
     .trim()
@@ -64,6 +66,7 @@ export async function createBooking(input: BookingInput): Promise<BookingResult>
           acceptsCash: sessions.acceptsCash,
           acceptsLink: sessions.acceptsLink,
           visibility: sessions.visibility,
+          privateSlug: sessions.privateSlug,
           status: sessions.status,
           organiserPaymentLink: organisers.paymentLink,
         })
@@ -72,7 +75,13 @@ export async function createBooking(input: BookingInput): Promise<BookingResult>
         .where(eq(sessions.id, input.sessionId))
         .for("update", { of: sessions });
 
-      if (!session || session.status !== "published" || session.visibility !== "public") {
+      if (!session || session.status !== "published") return fail("not_found");
+      // Private: only via its own link. Private trainings: anyone with the link.
+      // Private events (members only) open in Phase 5, with email verification.
+      if (
+        session.visibility === "private" &&
+        (session.kind !== "training" || !input.privateSlug || input.privateSlug !== session.privateSlug)
+      ) {
         return fail("not_found");
       }
       const now = new Date();

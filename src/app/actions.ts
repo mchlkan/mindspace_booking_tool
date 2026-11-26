@@ -38,6 +38,7 @@ export async function bookSessionAction(
 ): Promise<BookingFormState> {
   const raw = {
     sessionId: String(formData.get("sessionId") ?? ""),
+    privateSlug: (formData.get("privateSlug") as string | null) || undefined,
     fullName: String(formData.get("fullName") ?? ""),
     email: String(formData.get("email") ?? ""),
     matRequested: formData.get("matRequested") === "on",

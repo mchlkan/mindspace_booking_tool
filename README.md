@@ -35,6 +35,14 @@ Run the tests (booking rules, against a throwaway in-memory database) with `npm 
 4. Redeploy. The `vercel-build` script applies migrations before each build.
 5. Optional demo data on Neon: `SEED_ALLOW_REMOTE=1 DATABASE_URL=… npm run db:seed`.
 
+## Organisers
+
+Trainers, events managers and admins sign in at `/login` with a one-time email link (no passwords). The dashboard at `/dashboard` lets them create one-off or weekly sessions, see bookings, mats and payments, mark payments, edit or cancel sessions (participants are emailed), and set their profile (photo, payment link). New organisers request an account at `/signup` and wait for admin approval.
+
+Locally, sign in with a demo account, e.g. `ana.trainer@example.com` (trainer), `joao.events@example.com` (events manager) or `admin@example.com`, then open the link from http://localhost:3000/dev/emails.
+
+Image uploads use Vercel Blob in production (add **Storage → Blob** in Vercel, which sets `BLOB_READ_WRITE_TOKEN`); locally they're saved to `./.uploads`.
+
 ## Email
 
 Emails (booking confirmation with calendar invite, 24 h reminder) are sent with [Resend](https://resend.com).
