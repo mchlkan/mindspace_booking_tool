@@ -14,17 +14,20 @@
     "db:studio": "drizzle-kit studio",
     "typecheck": "next typegen && tsc --noEmit",
     "vercel-build": "npm run db:migrate && next build",
-    "test": "PGLITE_DIR=memory:// tsx --conditions=react-server --test 'tests/**/*.test.ts'"
+    "test": "PGLITE_DIR=memory:// TSX_TSCONFIG_PATH=tests/tsconfig.json tsx --test 'tests/**/*.test.ts'"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.6.0",
     "@neondatabase/serverless": "^1.2.1",
+    "@react-email/components": "1.0.12",
     "drizzle-orm": "^0.45.4",
+    "ics": "3.12.1",
     "lucide-react": "^1.81.0",
     "nanoid": "^6.0.2",
     "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "resend": "6.38.0",
     "server-only": "^0.0.1",
     "zod": "^4.6.7"
   },

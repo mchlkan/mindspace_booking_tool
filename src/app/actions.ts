@@ -1,7 +1,20 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { bookingInput, createBooking, reportPaid, type BookingFailure } from "@/lib/booking";
+import { after } from "next/server";
+import { bookingInput, cancelBooking, createBooking, reportPaid, type BookingFailure } from "@/lib/booking";
+import { cancelReminders, scheduleReminderIfDue, sendBookingConfirmation } from "@/lib/notifications";
+
+/** Email work runs after the response, so booking stays fast; failures are logged, not shown. */
+function afterResponse(label: string, work: () => Promise<unknown>) {
+  after(async () => {
+    try {
+      await work();
+    } catch (err) {
+      console.error(`[email] ${label} failed`, err);
+    }
+  });
+}
 
 export type BookingFormState = {
   error?: string;
@@ -58,11 +71,25 @@ export async function bookSessionAction(
     return { error: FAILURE_MESSAGES[result.reason], values };
   }
 
+  const bookingId = result.bookingId;
+  afterResponse("booking confirmation", () => sendBookingConfirmation(bookingId));
   redirect(`/b/${result.token}`);
 }
 
 export async function reportPaidAction(formData: FormData) {
   const token = String(formData.get("token") ?? "");
-  await reportPaid(token);
+  const bookingId = await reportPaid(token);
+  if (bookingId) afterResponse("reminder", () => scheduleReminderIfDue(bookingId));
   redirect(`/b/${token}`);
+}
+
+export async function cancelBookingAction(formData: FormData) {
+  const token = String(formData.get("token") ?? "");
+  const result = await cancelBooking(token);
+  if (result.ok) {
+    const bookingId = result.bookingId;
+    afterResponse("cancel reminders", () => cancelReminders([bookingId]));
+    redirect(`/b/${token}?cancelled=1`);
+  }
+  redirect(`/b/${token}/cancel?error=${result.reason}`);
 }

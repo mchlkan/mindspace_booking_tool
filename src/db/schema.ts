@@ -211,9 +211,19 @@ export const emailLog = pgTable(
     toEmail: text().notNull(),
     bookingId: uuid().references(() => bookings.id, { onDelete: "set null" }),
     sessionId: uuid().references(() => sessions.id, { onDelete: "set null" }),
+    /** Resend email id, or "local-…" / "skipped-…" when Resend isn't configured. */
     resendId: text(),
+    /** Set for emails scheduled to go out later (e.g. 24 h reminders). */
     scheduledFor: timestamp({ withTimezone: true }),
+    /** Set when a scheduled email was cancelled before it went out. */
+    cancelledAt: timestamp({ withTimezone: true }),
     sentAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("email_log_booking_idx").on(t.bookingId)],
+  (t) => [
+    index("email_log_booking_idx").on(t.bookingId),
+    // At most one live reminder per booking, even if two jobs race.
+    uniqueIndex("email_log_one_reminder_per_booking")
+      .on(t.bookingId, t.type)
+      .where(sql`${t.type} = 'session_reminder' and ${t.cancelledAt} is null`),
+  ],
 );

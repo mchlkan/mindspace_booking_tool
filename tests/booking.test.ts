@@ -197,12 +197,12 @@ describe("reportPaid", () => {
     const s = await makeSession();
     const r = await createBooking(input(s.id, { paymentMethod: "link" }));
     assert.ok(r.ok);
-    assert.equal(await reportPaid(r.token), true);
+    assert.equal(await reportPaid(r.token), r.bookingId);
     const b = await getBookingByToken(r.token);
     assert.equal(b?.status, "confirmed");
     assert.equal(b?.paymentStatus, "reported_paid");
     assert.equal(b?.holdExpiresAt, null);
-    assert.equal(await reportPaid(r.token), false);
+    assert.equal(await reportPaid(r.token), null);
   });
 
   test("does nothing for cash bookings, expired holds or unknown tokens", async () => {
@@ -214,9 +214,9 @@ describe("reportPaid", () => {
       .update(bookings)
       .set({ holdExpiresAt: new Date(Date.now() - 1000) })
       .where(eq(bookings.cancelToken, link.token));
-    assert.equal(await reportPaid(cash.token), false);
-    assert.equal(await reportPaid(link.token), false);
-    assert.equal(await reportPaid("nope"), false);
+    assert.equal(await reportPaid(cash.token), null);
+    assert.equal(await reportPaid(link.token), null);
+    assert.equal(await reportPaid("nope"), null);
   });
 });
 

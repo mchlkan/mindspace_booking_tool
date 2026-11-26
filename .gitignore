@@ -45,3 +45,6 @@ next-env.d.ts
 
 !.env.example
 node_modules
+
+# local email outbox (dev preview when Resend is not configured)
+/.outbox/

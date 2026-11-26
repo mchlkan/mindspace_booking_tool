@@ -1,0 +1,2 @@
+ALTER TABLE "email_log" ADD COLUMN "cancelled_at" timestamp with time zone;--> statement-breakpoint
+CREATE UNIQUE INDEX "email_log_one_reminder_per_booking" ON "email_log" USING btree ("booking_id","type") WHERE "email_log"."type" = 'session_reminder' and "email_log"."cancelled_at" is null;

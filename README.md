@@ -31,8 +31,19 @@ Run the tests (booking rules, against a throwaway in-memory database) with `npm 
 
 1. Import the GitHub repo in Vercel (framework: Next.js, defaults are fine).
 2. In the Vercel project: **Storage → Create Database → Neon**, connect it to all environments. This sets `DATABASE_URL`.
-3. Redeploy. The `vercel-build` script applies migrations before each build.
-4. Optional demo data on Neon: `SEED_ALLOW_REMOTE=1 DATABASE_URL=… npm run db:seed`.
+3. In **Settings → Environment Variables** add `CRON_SECRET` (any long random string). Without it the daily reminder job refuses to run.
+4. Redeploy. The `vercel-build` script applies migrations before each build.
+5. Optional demo data on Neon: `SEED_ALLOW_REMOTE=1 DATABASE_URL=… npm run db:seed`.
+
+## Email
+
+Emails (booking confirmation with calendar invite, 24 h reminder) are sent with [Resend](https://resend.com).
+
+- **Locally:** no setup. Emails are saved to `./.outbox` and listed at http://localhost:3000/dev/emails.
+- **On Vercel without Resend:** bookings work; emails are skipped and logged.
+- **To send for real:** verify a sending domain in Resend, then set `RESEND_API_KEY` and `EMAIL_FROM` in Vercel. Replies go to `EMAIL_REPLY_TO` (default `mindspace.club@novasbe.pt`).
+
+Reminders are scheduled 24 h before each session: right after booking when the session is less than ~2 days away, otherwise by the daily job in `vercel.json` (06:00 UTC). Cancelling a booking cancels its scheduled reminder.
 
 ## Brand
 

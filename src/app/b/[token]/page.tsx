@@ -1,4 +1,4 @@
-import { CircleCheck, Clock3, ExternalLink, Hourglass, XCircle } from "lucide-react";
+import { CalendarPlus, CircleCheck, Clock3, ExternalLink, Hourglass, XCircle } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -38,6 +38,7 @@ async function BookingDetails({ token }: { token: string }) {
   await connection();
   const booking = await getBookingByToken(token);
   if (!booking) notFound();
+  const isActive = booking.status === "confirmed" || booking.status === "pending_payment";
 
   return (
     <div className="space-y-4">
@@ -80,14 +81,47 @@ async function BookingDetails({ token }: { token: string }) {
 
       {booking.status === "pending_payment" && <PayNow booking={booking} token={token} />}
 
-      <p className="px-1 text-sm text-ink-500">
-        Bookmark this page to come back to your booking. A confirmation email with a calendar invite and
-        a cancel link is coming soon.
-      </p>
+      {isActive && booking.sessionStatus === "published" && (
+        <ManageBooking booking={booking} token={token} />
+      )}
       <Link href="/" className="inline-block px-1 py-2 text-sm font-medium text-navy-500 underline-offset-4 hover:underline">
         ← Browse more sessions
       </Link>
     </div>
+  );
+}
+
+function ManageBooking({ booking, token }: { booking: BookingView; token: string }) {
+  const canCancel = booking.beforeCancelCutoff;
+  return (
+    <section className="space-y-3 rounded-2xl bg-cream-50 p-5 ring-1 ring-sand-200">
+      <a
+        href={`/b/${token}/calendar.ics`}
+        className="flex w-full items-center justify-center gap-2 rounded-full bg-white px-6 py-3 font-semibold text-navy-700 ring-1 ring-sand-400 hover:bg-cream-100"
+      >
+        <CalendarPlus className="size-5" {...iconProps} />
+        Add to calendar
+      </a>
+      {canCancel ? (
+        <p className="text-sm text-ink-500">
+          Can&apos;t make it?{" "}
+          <Link href={`/b/${token}/cancel`} className="font-semibold text-navy-500 underline underline-offset-4">
+            Cancel your booking
+          </Link>{" "}
+          until {formatDay(booking.cancelDeadline)}, {formatTime(booking.cancelDeadline)} so someone else can take your
+          spot.
+        </p>
+      ) : (
+        <p className="text-sm text-ink-500">
+          Online cancellation closed {booking.cancelCutoffHours} h before the session. If you can&apos;t make it, please
+          reply to your confirmation email.
+        </p>
+      )}
+      <p className="text-sm text-ink-500">
+        We&apos;ve emailed your confirmation and calendar invite to {booking.email}. Bookmark this page to come back to
+        your booking.
+      </p>
+    </section>
   );
 }
 
@@ -123,7 +157,7 @@ function StatusBanner({ booking }: { booking: BookingView }) {
     case "cancelled":
       return (
         <Banner tone="muted" icon={<XCircle className="size-8 shrink-0" {...iconProps} />} title="Booking cancelled">
-          This booking was cancelled.
+          Your spot has been released for someone else. Hope to see you at another session soon!
         </Banner>
       );
   }
@@ -188,7 +222,7 @@ function Banner({
 }
 
 function paymentLabel(b: BookingView) {
-  if (b.paymentStatus === "paid") return "Paid";
-  if (b.paymentStatus === "reported_paid") return "You marked it as paid";
-  return b.paymentMethod === "cash" ? "Pay on site" : "Not paid yet";
+  if (b.paymentStatus === "paid") return "paid";
+  if (b.paymentStatus === "reported_paid") return "you marked it as paid";
+  return b.paymentMethod === "cash" ? "pay at the session" : "not paid yet";
 }

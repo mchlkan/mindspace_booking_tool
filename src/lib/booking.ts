@@ -36,7 +36,7 @@ export type BookingFailure =
   | "already_booked";
 
 export type BookingResult =
-  | { ok: true; token: string; status: "confirmed" | "pending_payment" }
+  | { ok: true; bookingId: string; token: string; status: "confirmed" | "pending_payment" }
   | { ok: false; reason: BookingFailure };
 
 const UNIQUE_VIOLATION = "23505";
@@ -125,7 +125,7 @@ export async function createBooking(input: BookingInput): Promise<BookingResult>
           : null;
       const token = nanoid(32);
 
-      await tx.insert(bookings).values({
+      const [inserted] = await tx.insert(bookings).values({
         sessionId: session.id,
         fullName: input.fullName,
         email: input.email,
@@ -135,9 +135,9 @@ export async function createBooking(input: BookingInput): Promise<BookingResult>
         holdExpiresAt,
         cancelToken: token,
         consentAt: now,
-      });
+      }).returning({ id: bookings.id });
 
-      return { ok: true as const, token, status };
+      return { ok: true as const, bookingId: inserted.id, token, status };
     });
   } catch (err) {
     // Backstop: the database's own one-booking-per-email rule.
@@ -146,8 +146,11 @@ export async function createBooking(input: BookingInput): Promise<BookingResult>
   }
 }
 
-/** Participant says they've paid via the payment link → booking confirmed. */
-export async function reportPaid(token: string) {
+/**
+ * Participant says they've paid via the payment link → booking confirmed.
+ * Returns the booking id, or null if there was nothing to confirm.
+ */
+export async function reportPaid(token: string): Promise<string | null> {
   const updated = await db
     .update(bookings)
     .set({ status: "confirmed", paymentStatus: "reported_paid", holdExpiresAt: null })
@@ -161,14 +164,64 @@ export async function reportPaid(token: string) {
       ),
     )
     .returning({ id: bookings.id });
-  return updated.length > 0;
+  return updated[0]?.id ?? null;
 }
+
+export type CancelResult =
+  | { ok: true; bookingId: string }
+  | { ok: false; reason: "not_found" | "not_active" | "too_late" };
+
+/**
+ * Participant cancels via their booking link. Allowed until
+ * `cancel_cutoff_hours` (default 24) before the session starts.
+ */
+export async function cancelBooking(token: string, now = new Date()): Promise<CancelResult> {
+  if (!TOKEN_RE.test(token)) return { ok: false, reason: "not_found" };
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({
+        id: bookings.id,
+        status: bookings.status,
+        holdExpiresAt: bookings.holdExpiresAt,
+        startsAt: sessions.startsAt,
+        cutoffHours: sessions.cancelCutoffHours,
+      })
+      .from(bookings)
+      .innerJoin(sessions, eq(sessions.id, bookings.sessionId))
+      .where(eq(bookings.cancelToken, token))
+      .for("update", { of: bookings });
+
+    if (!row) return { ok: false as const, reason: "not_found" as const };
+    const active =
+      row.status === "confirmed" ||
+      (row.status === "pending_payment" && !!row.holdExpiresAt && row.holdExpiresAt > now);
+    if (!active) return { ok: false as const, reason: "not_active" as const };
+    if (now >= cancelDeadline(row.startsAt, row.cutoffHours)) {
+      return { ok: false as const, reason: "too_late" as const };
+    }
+
+    await tx
+      .update(bookings)
+      .set({ status: "cancelled", cancelledAt: now, holdExpiresAt: null })
+      .where(eq(bookings.id, row.id));
+    return { ok: true as const, bookingId: row.id };
+  });
+}
+
+/** Last moment a participant can cancel themselves. */
+export function cancelDeadline(startsAt: Date, cutoffHours: number): Date {
+  return new Date(startsAt.getTime() - cutoffHours * 3_600_000);
+}
+
+const TOKEN_RE = /^[\w-]{32}$/;
 
 /** Everything the booking page needs, looked up by its secret token. */
 export async function getBookingByToken(token: string) {
-  if (!/^[\w-]{32}$/.test(token)) return null;
+  if (!TOKEN_RE.test(token)) return null;
   const [row] = await db
     .select({
+      bookingId: bookings.id,
+      createdAt: bookings.createdAt,
       fullName: bookings.fullName,
       email: bookings.email,
       matRequested: bookings.matRequested,
@@ -184,6 +237,8 @@ export async function getBookingByToken(token: string) {
       endsAt: sessions.endsAt,
       priceCents: sessions.priceCents,
       sessionStatus: sessions.status,
+      description: sessions.description,
+      cancelCutoffHours: sessions.cancelCutoffHours,
       organiserName: organisers.name,
       paymentLink: organisers.paymentLink,
     })
@@ -195,7 +250,13 @@ export async function getBookingByToken(token: string) {
   if (!row) return null;
   const holdExpired =
     row.status === "pending_payment" && !!row.holdExpiresAt && row.holdExpiresAt <= new Date();
-  return { ...row, status: holdExpired ? ("expired" as const) : row.status };
+  return {
+    ...row,
+    status: holdExpired ? ("expired" as const) : row.status,
+    cancelDeadline: cancelDeadline(row.startsAt, row.cancelCutoffHours),
+    /** Still before the cancellation cutoff (as of loading). */
+    beforeCancelCutoff: Date.now() < cancelDeadline(row.startsAt, row.cancelCutoffHours).getTime(),
+  };
 }
 
 export type BookingView = NonNullable<Awaited<ReturnType<typeof getBookingByToken>>>;

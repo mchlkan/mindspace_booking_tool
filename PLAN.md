@@ -43,7 +43,7 @@ The data is relational, and correctness matters at exactly one point: **two peop
 | "Full" at capacity | Same capacity query; booking action re-checks inside the transaction |
 | Mats (trainings only) | Separate counter vs `mat_limit`; mat checkbox disabled when mats run out (booking still allowed) |
 | Private events: members only + OTP | Booking form asks for email → if on member list, send 6-digit code (hashed, 10 min, 5 attempts) → verified → book. Non-members get a friendly "members only" message |
-| Private trainings: link only | Reachable only via `private_slug` URL (21-char random ID), not listed. **Open question** in PRD; recommended default: anyone with the link can book |
+| Private trainings: link only | Reachable only via `private_slug` URL (21-char random ID), not listed. **Decided (26 Nov 2026):** anyone with the link can book |
 | Cancellation until 24 h before | Email link with `cancel_token`; blocked after cutoff with a clear message |
 | GDPR: delete 12 months after last booking | Daily cron deletes bookings (name/email) older than 12 months; consent checkbox required on the form |
 
@@ -76,7 +76,7 @@ Scheduling: on the Vercel Hobby plan, cron jobs run **at most once per day**. Th
 **Typography**
 - **League Spartan** (Google Fonts): UI text and session headlines ("writing font… gen. text & headlines on events")
 - **Open Sauce** (open licence, self-host): logo wordmark and brand headings
-- **Tan Nimbus**: CTAs only ("BOOK NOW"), *if* the club holds a web licence. It's a commercial font. Fallback: League Spartan bold caps
+- **Tan Nimbus**: not used (decided 26 Nov 2026). CTAs use League Spartan bold caps
 - Rule from the book: max 2 fonts per screen, max 3 colours per component
 
 **Look & feel**
@@ -123,9 +123,14 @@ Scheduling: on the Vercel Hobby plan, cron jobs run **at most once per day**. Th
 
 Phases 0–2 make a demoable prototype; 3–7 complete v1.
 
-## 8. Decisions needed
+## 8. Decisions
 
-1. **Domain** for sending email (and optionally for the app URL)
-2. **Private trainings**: anyone with the link, or members only? (Recommended: anyone with the link)
-3. **Tan Nimbus licence**: do we have web rights, or fall back to League Spartan?
-4. **Vercel plan**: Hobby is for non-commercial use; fine for a student club, but confirm nothing is sold through the app (the PRD says no money passes through it, which helps)
+Decided 26 Nov 2026:
+- **Private trainings**: anyone with the link can book (private events stay members-only)
+- **Fonts**: League Spartan everywhere (plus Open Sauce for the logo); no Tan Nimbus
+- **Club email**: mindspace.club@novasbe.pt. Used as the Reply-To on all emails
+
+Still open:
+1. **Sending domain**: Resend must send *from* a domain whose DNS we control. novasbe.pt belongs to the university, so either Nova IT adds Resend's DNS records (ideally for a subdomain like `mindspace.novasbe.pt`), or the club registers its own domain. Replies go to the club inbox either way
+2. **Vercel access**: repo is owned by `mchlkan`; needs the Vercel GitHub app or a repo transfer
+3. **Vercel plan**: Hobby is for non-commercial use; fine for a student club, but confirm nothing is sold through the app (the PRD says no money passes through it, which helps)
