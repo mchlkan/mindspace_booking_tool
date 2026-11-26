@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+/*
+ * Mindspace 2.0 brand tokens (Brand Book p.9 & p.17).
+ * Hex values were sampled from the brand book PDF. Confirm against the
+ * Canva source files before launch.
+ * Brand rule: only use these colours; max 3 colours per component.
+ */
+@theme {
+  /* Blues (primary) */
+  --color-navy-900: #2a3142;
+  --color-navy-700: #3b4359;
+  --color-navy-500: #53617f;
+  --color-slate-400: #7586a1;
+
+  /* Yellows (highlight / call to action) */
+  --color-sun-300: #fdf3a9;
+  --color-sun-500: #ecdf67;
+
+  /* Neutrals */
+  --color-sand-400: #c4bdb3;
+  --color-sand-200: #d8d3c8;
+  --color-cream-100: #f7f4f0;
+  --color-cream-50: #fbfbfa;
+  --color-stone-500: #838b93;
+  --color-stone-300: #c9c7ca;
+
+  /* Text (brand book "Fonts" swatches) */
+  --color-ink-900: #232833;
+  --color-ink-700: #393939;
+  --color-ink-500: #5f5f5f;
+
+  /* Typography */
+  --font-sans: var(--font-league-spartan), ui-sans-serif, system-ui, sans-serif;
+  --font-brand: var(--font-open-sauce), var(--font-league-spartan), ui-sans-serif, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: var(--color-cream-100);
+  color: var(--color-ink-900);
+  font-family: var(--font-sans);
+}

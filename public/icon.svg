@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#53617f"/>
+  <g fill="none" stroke="#fdf3a9" stroke-linecap="round" stroke-width="7">
+    <path d="M70 270c-14-60 92-118 210-118 112 0 192 36 192 96 0 64-100 114-226 114-104 0-166-34-178-74"/>
+    <path d="M94 200c50-40 144-60 234-50 90 10 148 54 138 104-10 60-104 110-238 110-112 0-184-44-174-100" stroke-width="4.5"/>
+  </g>
+  <g fill="#fdf3a9" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-weight="800" text-anchor="middle">
+    <text x="268" y="268" font-size="88">MIND</text>
+    <text x="270" y="326" font-size="40" letter-spacing="13">SPACE</text>
+  </g>
+</svg>
